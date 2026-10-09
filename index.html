@@ -1,0 +1,278 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #74ebd5, #9face6);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .weather-container {
+            background: white;
+            width: 350px;
+            max-width: 100%;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 8px 20px #0002;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+        }
+
+        input {
+            width: 100%;
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            background: #3977e8;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #245bc0;
+        }
+
+        #weatherInfo {
+            margin-top: 20px;
+        }
+
+        #weatherIcon {
+            font-size: 55px;
+            margin: 10px 0;
+        }
+
+        #temperature {
+            font-size: 42px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #333;
+        }
+
+        #cityName {
+            font-size: 25px;
+            margin: 10px 0;
+        }
+
+        #description {
+            color: #666;
+            text-transform: capitalize;
+        }
+
+        .details {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .detail-box {
+            background: #f0f4ff;
+            padding: 12px 5px;
+            border-radius: 10px;
+            width: 50%;
+        }
+
+        .detail-box p {
+            margin: 5px 0;
+        }
+
+        #message {
+            color: #d32f2f;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="weather-container">
+        <h1>🌤️ Weather App</h1>
+
+        <form class="search-box" id="searchForm">
+            <input
+                type="text"
+                id="cityInput"
+                placeholder="Enter city name"
+                aria-label="City name"
+                required
+            >
+            <button type="submit">Search</button>
+        </form>
+
+        <p id="message" role="status"></p>
+
+        <div id="weatherInfo">
+            <h2 id="cityName">Search a city</h2>
+            <div id="weatherIcon">🌍</div>
+            <p id="temperature">--°C</p>
+            <p id="description">Weather information appears here</p>
+
+            <div class="details">
+                <div class="detail-box">
+                    <p>💧 Humidity</p>
+                    <p id="humidity">--%</p>
+                </div>
+
+                <div class="detail-box">
+                    <p>💨 Wind Speed</p>
+                    <p id="wind">-- km/h</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById("searchForm");
+        const cityInput = document.getElementById("cityInput");
+        const message = document.getElementById("message");
+
+        form.addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const city = cityInput.value.trim();
+
+            if (city === "") {
+                message.textContent = "Please enter a city name.";
+                return;
+            }
+
+            getWeather(city);
+        });
+
+        async function getWeather(city) {
+            message.textContent = "Loading weather...";
+
+            try {
+                // Find the city's latitude and longitude
+                const geoUrl =
+                    "https://geocoding-api.open-meteo.com/v1/search?name=" +
+                    encodeURIComponent(city) +
+                    "&count=1&language=en&format=json";
+
+                const geoResponse = await fetch(geoUrl);
+
+                if (!geoResponse.ok) {
+                    throw new Error("Unable to search for this city.");
+                }
+
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error("City not found. Try another city.");
+                }
+
+                const place = geoData.results[0];
+                const latitude = place.latitude;
+                const longitude = place.longitude;
+
+                // Get current weather details
+                const weatherUrl =
+                    "https://api.open-meteo.com/v1/forecast?latitude=" +
+                    latitude +
+                    "&longitude=" +
+                    longitude +
+                    "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&timezone=auto";
+
+                const weatherResponse = await fetch(weatherUrl);
+
+                if (!weatherResponse.ok) {
+                    throw new Error("Unable to get weather information.");
+                }
+
+                const weatherData = await weatherResponse.json();
+                const current = weatherData.current;
+
+                // Display the city and weather
+                document.getElementById("cityName").textContent =
+                    place.name +
+                    (place.country ? ", " + place.country : "");
+
+                document.getElementById("temperature").textContent =
+                    current.temperature_2m + "°C";
+
+                document.getElementById("humidity").textContent =
+                    current.relative_humidity_2m + "%";
+
+                document.getElementById("wind").textContent =
+                    current.wind_speed_10m + " km/h";
+
+                document.getElementById("description").textContent =
+                    getWeatherDescription(current.weather_code);
+
+                document.getElementById("weatherIcon").textContent =
+                    getWeatherIcon(current.weather_code, current.is_day);
+
+                message.textContent = "";
+            } catch (error) {
+                message.textContent = error.message ||
+                    "Something went wrong. Please try again.";
+            }
+        }
+
+        function getWeatherDescription(code) {
+            if (code === 0) return "Clear sky";
+            if (code === 1) return "Mainly clear";
+            if (code === 2) return "Partly cloudy";
+            if (code === 3) return "Overcast";
+            if ([45, 48].includes(code)) return "Foggy";
+            if ([51, 53, 55].includes(code)) return "Drizzle";
+            if ([56, 57].includes(code)) return "Freezing drizzle";
+            if ([61, 63, 65].includes(code)) return "Rain";
+            if ([66, 67].includes(code)) return "Freezing rain";
+            if ([71, 73, 75, 77].includes(code)) return "Snow";
+            if ([80, 81, 82].includes(code)) return "Rain showers";
+            if ([85, 86].includes(code)) return "Snow showers";
+            if (code === 95) return "Thunderstorm";
+            if ([96, 99].includes(code)) return "Thunderstorm with hail";
+            return "Weather unavailable";
+        }
+
+        function getWeatherIcon(code, isDay) {
+            if (code === 0) return isDay ? "☀️" : "🌙";
+            if ([1, 2].includes(code)) return isDay ? "🌤️" : "☁️";
+            if (code === 3) return "☁️";
+            if ([45, 48].includes(code)) return "🌫️";
+            if (code >= 51 && code <= 67) return "🌧️";
+            if (code >= 71 && code <= 77) return "❄️";
+            if (code >= 80 && code <= 82) return "🌦️";
+            if (code === 85 || code === 86) return "🌨️";
+            if (code >= 95) return "⛈️";
+            return "🌍";
+        }
+    </script>
+
+</body>
+</html>
+
